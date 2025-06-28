@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from models.appointment_model import AppointmentCreate, PrescriptionUpdate
 from mongo import appointments_collection
 from datetime import datetime
-from models.models import AvailabilityRequest, BookAppointmentRequest, DoctorRequest, SlotCheckRequest, SlotBookingRequest, SlotReleaseRequest
+from models.models import AvailabilityRequest, BookAppointmentRequest, DoctorRequest, EmailRequest, SlotCheckRequest, SlotBookingRequest, SlotReleaseRequest
 import logging
 from fastapi import APIRouter
 from google_meet import create_meet_event
@@ -14,6 +14,7 @@ import uuid
 from datetime import datetime
 from models.models import PatientRequest
 from mongo import patients_collection
+
 
 
 from mongo import doctors_collection, patients_collection
@@ -34,10 +35,41 @@ def send_email(to_email: str, subject: str, html: str):
     )
     try:
         sg = SendGridAPIClient(SENDGRID_API_KEY)
-        sg.send(message)
+        print(SENDGRID_API_KEY)
+        response = sg.send(message)
         print("Email sent")
+        return True
     except Exception as e:
         print(f"SendGrid Error: {e}")
+        return False
+
+@app.post("/send-appointment-email")
+async def send_appointment_email(request: EmailRequest):
+    """
+    Send appointment confirmation email
+    """
+    subject = "Appointment Confirmation"
+    html_content = """
+    <html>
+        <body>
+            <p>Dear Sir,</p>
+            <p>Your appointment has been booked.</p>
+            <br>
+            <p>Best regards,</p>
+            <p>Your Service Team</p>
+        </body>
+    </html>
+    """
+    print(request.email)
+    # Send the email
+    email_sent = send_email(request.email, subject, "ab")
+
+    
+    if email_sent:
+        return {"message": "Mail sent successfully", "email": request.email}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to send email")
+
 
 @app.post("/patient/upsert")
 def upsert_patient(data: PatientRequest):
@@ -89,9 +121,6 @@ def upsert_patient(data: PatientRequest):
         logging.error(f"Error in upsert_patient: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
     
-from pydantic import BaseModel
-from typing import Dict
-import logging
 
 
 @app.post("/doctor/upsert")

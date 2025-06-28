@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 from typing import Dict
 class SlotCheckRequest(BaseModel):
@@ -41,3 +41,8 @@ class BookAppointmentRequest(BaseModel):
     doctorid: str
     patientid: str
     time: str  # Format: "2025-06-28T09:00:00"
+
+
+# Pydantic model for request body
+class EmailRequest(BaseModel):
+    email: EmailStr

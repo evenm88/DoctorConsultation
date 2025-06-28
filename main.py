@@ -25,26 +25,63 @@ load_dotenv()
 
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 FROM_EMAIL = os.getenv("FROM_EMAIL")
+SMTP_USERNAME = os.getenv("SMTP_USERNAME")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 
+# def send_email(to_email: str, subject: str, html: str):
+#     message = Mail(
+#         from_email=FROM_EMAIL,
+#         to_emails=to_email,
+#         subject=subject,
+#         html_content=html,
+#     )
+#     try:
+#         sg = SendGridAPIClient(SENDGRID_API_KEY)
+#         print(SENDGRID_API_KEY)
+#         response = sg.send(message)
+#         print("Email sent")
+#         return True
+#     except Exception as e:
+#         print(f"SendGrid Error: {e}")
+#         return False
 
-def send_email(to_email: str, subject: str, html: str):
-    message = Mail(
-        from_email=FROM_EMAIL,
-        to_emails=to_email,
-        subject=subject,
-        html_content=html,
-    )
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
+SMTP_SERVER = "smtp.gmail.com"    
+SMTP_PORT = 587                     
+FROM_EMAIL = SMTP_USERNAME           
+
+def send_email(to_email: str, subject: str, html: str) -> bool:
     try:
-        sg = SendGridAPIClient(SENDGRID_API_KEY)
-        print(SENDGRID_API_KEY)
-        response = sg.send(message)
-        print("Email sent")
+        # Create message container
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = FROM_EMAIL
+        msg["To"] = to_email
+
+        # Attach HTML content
+        part = MIMEText(html, "html")
+        msg.attach(part)
+
+        # Connect to SMTP server
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()  # Secure the connection
+        server.login(SMTP_USERNAME, SMTP_PASSWORD)
+
+        # Send email
+        server.sendmail(FROM_EMAIL, to_email, msg.as_string())
+        server.quit()
+
+        print("Email sent successfully")
         return True
     except Exception as e:
-        print(f"SendGrid Error: {e}")
+        print(f"SMTP Error: {e}")
         return False
 
-@app.post("/send-appointment-email")
+
+@app.post("/send-appointment-email" , operation_id="send_appointment_email")
 async def send_appointment_email(request: EmailRequest):
     """
     Send appointment confirmation email
@@ -63,7 +100,7 @@ async def send_appointment_email(request: EmailRequest):
     """
     print(request.email)
     # Send the email
-    email_sent = send_email(request.email, subject, "ab")
+    email_sent = send_email(request.email, subject, request.html_content)
 
     
     if email_sent:
@@ -313,6 +350,7 @@ mcp = FastApiMCP(app, include_operations= [
     "upsert_doctor",
     "generate_meet_link",
     "check_availability",
-    "book_appointment"
+    "book_appointment",
+    "send_appointment_email",
 ])
 mcp.mount()

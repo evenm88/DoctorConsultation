@@ -8,7 +8,7 @@ from datetime import datetime
 from models.models import AvailabilityRequest, BookAppointmentRequest, DoctorRequest, EmailRequest, SlotCheckRequest, SlotBookingRequest, SlotReleaseRequest
 import logging
 from fastapi import APIRouter
-from google_meet import create_meet_event
+# from google_meet import create_meet_event
 import os
 import uuid
 from datetime import datetime
@@ -17,6 +17,7 @@ from mongo import patients_collection
 
 
 
+from fastapi_mcp import FastApiMCP
 from mongo import doctors_collection, patients_collection
 
 app = FastAPI()
@@ -71,7 +72,7 @@ async def send_appointment_email(request: EmailRequest):
         raise HTTPException(status_code=500, detail="Failed to send email")
 
 
-@app.post("/patient/upsert")
+@app.post("/patient/upsert", operation_id="upsert_patient")
 def upsert_patient(data: PatientRequest):
     try:
         if not data.email or not data.email.strip():
@@ -123,7 +124,7 @@ def upsert_patient(data: PatientRequest):
     
 
 
-@app.post("/doctor/upsert")
+@app.post("/doctor/upsert", operation_id="upsert_doctor")
 def upsert_doctor(data: DoctorRequest):
     try:
         if not data.email or not data.email.strip():
@@ -173,7 +174,8 @@ def upsert_doctor(data: DoctorRequest):
         logging.error(f"Error in upsert_doctor: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@app.get("/generate-meet-link")
+#Generate Meet Link
+@app.get("/generate-meet-link", operation_id="generate_meet_link")
 def generate_meet_link():
     try:
         link = create_meet_event()
@@ -181,7 +183,7 @@ def generate_meet_link():
     except Exception as e:
         return {"error": str(e)}
 
-@app.post("/check-availability")
+@app.post("/check-availability", operation_id="check_availability")
 def check_availability(data: AvailabilityRequest):
     doctor = doctors_collection.find_one({"_id": data.doctorid})
     if not doctor:
@@ -190,7 +192,7 @@ def check_availability(data: AvailabilityRequest):
     availability = doctor.get("availability", {})
     return {"availability": availability}
 
-@app.post("/book-appointment")
+@app.post("/book-appointment", operation_id="book_appointment")
 def book_appointment(data: BookAppointmentRequest):
     try:
         # Check if the time slot is already booked
@@ -304,3 +306,13 @@ def book_appointment(data: BookAppointmentRequest):
 #     if result.modified_count == 0:
 #         raise HTTPException(status_code=404, detail="Appointment not found")
 #     return {"message": "Prescription added and status updated to completed"}
+
+
+mcp = FastApiMCP(app, include_operations= [
+    "upsert_patient",
+    "upsert_doctor",
+    "generate_meet_link",
+    "check_availability",
+    "book_appointment"
+])
+mcp.mount()

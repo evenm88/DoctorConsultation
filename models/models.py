@@ -46,3 +46,4 @@ class BookAppointmentRequest(BaseModel):
 # Pydantic model for request body
 class EmailRequest(BaseModel):
     email: EmailStr
+    html_content: str

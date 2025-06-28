@@ -100,7 +100,7 @@ async def send_appointment_email(request: EmailRequest):
     """
     print(request.email)
     # Send the email
-    email_sent = send_email(request.email, subject, html_content)
+    email_sent = send_email(request.email, subject, request.html_content)
 
     
     if email_sent:

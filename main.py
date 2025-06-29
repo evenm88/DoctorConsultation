@@ -2,12 +2,18 @@ from fastapi import FastAPI, HTTPException
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from dotenv import load_dotenv
+from google_meet import create_meet_event
 from models.appointment_model import AppointmentCreate, PrescriptionUpdate
-from mongo import appointments_collection
+from mongo import appointments_collection,prescriptions_collection
 from datetime import datetime
-from models.models import AvailabilityRequest, BookAppointmentRequest, DoctorRequest, EmailRequest, SlotCheckRequest, SlotBookingRequest, SlotReleaseRequest
+from models.models import AvailabilityRequest, BookAppointmentRequest, DoctorRequest, EmailRequest, PrescriptionRequest, SlotCheckRequest, SlotBookingRequest, SlotReleaseRequest
 import logging
 from fastapi import APIRouter
+# Add this to your imports
+from datetime import datetime
+import uuid
+
+
 # from google_meet import create_meet_event
 import os
 import uuid
@@ -18,9 +24,19 @@ from mongo import patients_collection
 
 
 from fastapi_mcp import FastApiMCP
+from fastapi.middleware.cors import CORSMiddleware
+
 from mongo import doctors_collection, patients_collection
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Or ["http://localhost:3000"] for specific origin
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 load_dotenv()
 
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
@@ -81,7 +97,7 @@ def send_email(to_email: str, subject: str, html: str) -> bool:
         return False
 
 
-@app.post("/send-appointment-email" , operation_id="send_appointment_email")
+@app.post("/send-email" , operation_id="send_email")
 async def send_appointment_email(request: EmailRequest):
     """
     Send appointment confirmation email
@@ -284,65 +300,130 @@ def book_appointment(data: BookAppointmentRequest):
             "error": str(e)
         }
 
-# @app.post("/book-slot")
-# def book_slot(data: SlotBookingRequest):
-#     doctor = doctors_collection.find_one({"_id": data.doctor_id})
-#     patient = patients_collection.find_one({"_id": data.patient_id})
 
-#     if not doctor or not patient:
-#         raise HTTPException(status_code=404, detail="Doctor or patient not found")
+#
+# API Endpoint
+# Updated API Endpoint
+@app.post("/add-prescription", operation_id="add_prescription")
+def add_prescription(data: PrescriptionRequest):
+    try:
+        # Generate unique prescription ID
+        prescription_id = f"presc{str(uuid.uuid4())[:8]}"
+        
+        # Create prescription data
+        prescription_data = {
+            "_id": prescription_id,
+            "doctor_id": data.doctorid,
+            "patient_id": data.patientid,
+            "prescriptions": [
+                {
+                    "name": item.name,
+                    "count": item.count,
+                    "dosage": item.dosage
+                } for item in data.prescriptions
+            ],
+            "created_at": datetime.now().isoformat(),
+            "status": "active"
+        }
+        
+        # Insert the prescription
+        result = prescriptions_collection.insert_one(prescription_data)
+        
+        if result.inserted_id:
+            return {
+                "message": "Prescription added successfully",
+                "status": "success",
+                "prescription_id": prescription_id,
+                "prescription_details": {
+                    "doctor_id": data.doctorid,
+                    "patient_id": data.patientid,
+                    "total_medicines": len(data.prescriptions),
+                    "prescriptions": [
+                        {
+                            "name": item.name,
+                            "count": item.count,
+                            "dosage": item.dosage,
+                            "dosage_breakdown": {
+                                "morning": item.dosage.split('-')[0] if len(item.dosage.split('-')) >= 1 else "0",
+                                "afternoon": item.dosage.split('-')[1] if len(item.dosage.split('-')) >= 2 else "0",
+                                "night": item.dosage.split('-')[2] if len(item.dosage.split('-')) >= 3 else "0"
+                            }
+                        } for item in data.prescriptions
+                    ]
+                }
+            }
+        else:
+            return {
+                "message": "Failed to add prescription",
+                "status": "failed"
+            }
+            
+    except Exception as e:
+        logging.error(f"Error in add_prescription: {str(e)}")
+        return {
+            "message": "Internal server error",
+            "status": "failed",
+            "error": str(e)
+        }
 
-#     if doctor["availability"].get(data.time) != "yes":
-#         raise HTTPException(status_code=400, detail="Slot not available")
+@app.get("/get-prescriptions/{patient_id}", operation_id="get_prescriptions")
+def get_prescriptions(patient_id: str):
+    try:
+        # Find all prescriptions for the patient
+        prescriptions = list(prescriptions_collection.find({"patient_id": patient_id}))
+        
+        if prescriptions:
+            return {
+                "message": "Prescriptions found",
+                "status": "success",
+                "count": len(prescriptions),
+                "prescriptions": prescriptions
+            }
+        else:
+            return {
+                "message": "No prescriptions found for this patient",
+                "status": "success",
+                "count": 0,
+                "prescriptions": []
+            }
+            
+    except Exception as e:
+        logging.error(f"Error in get_prescriptions: {str(e)}")
+        return {
+            "message": "Internal server error",
+            "status": "failed",
+            "error": str(e)
+        }
 
-#     # Mark slot as booked
-#     doctors_collection.update_one(
-#         {"_id": data.doctor_id},
-#         {"$set": {f"availability.{data.time}": "no"}}
-#     )
-
-#     # Send email
-#     subject = "Doctor Consultation Slot Booked"
-#     html = f"""
-#         <p>Dear {doctor['name']},</p>
-#         <p>{patient['name']} has booked your <strong>{data.time}</strong> slot for consultation today.</p>
-#     """
-#     send_email(doctor["email"], subject, html)
-
-#     return {"message": "Slot booked and doctor notified"}
-
-
-# @app.post("/release-slot")
-# def release_slot(data: SlotReleaseRequest):
-#     doctor = doctors_collection.find_one({"_id": data.doctor_id})
-#     if not doctor:
-#         raise HTTPException(status_code=404, detail="Doctor not found")
-
-#     doctors_collection.update_one(
-#         {"_id": data.doctor_id},
-#         {"$set": {f"availability.{data.time}": "yes"}}
-#     )
-#     return {"message": f"Slot {data.time} released for doctor {data.doctor_id}"}
-# @app.post("/create-appointment")
-# def create_appointment(data: AppointmentCreate):
-#     new_apt = {
-#         "patient_id": data.patient_id,
-#         "doctor_id": data.doctor_id,
-#         "time": data.time,
-#         "prescription": data.prescription,
-#         "status": data.status
-#     }
-#     result = appointments_collection.insert_one(new_apt)
-#     return {"message": "Appointment created", "appointment_id": str(result.inserted_id)}
-# @app.post("/add-prescription")
-# def add_prescription(data: PrescriptionUpdate):
-#     result = appointments_collection.update_one(
-#         {"_id": data.appointment_id},
-#         {"$set": {"prescription": data.prescription, "status": "completed"}}
-#     )
-#     if result.modified_count == 0:
-#         raise HTTPException(status_code=404, detail="Appointment not found")
-#     return {"message": "Prescription added and status updated to completed"}
+# Optional: Get prescriptions by doctor
+@app.get("/get-prescriptions-by-doctor/{doctor_id}", operation_id="get_prescriptions_by_doctor")
+def get_prescriptions_by_doctor(doctor_id: str):
+    try:
+        # Find all prescriptions by the doctor
+        prescriptions = list(prescriptions_collection.find({"doctor_id": doctor_id}))
+        
+        if prescriptions:
+            return {
+                "message": "Prescriptions found",
+                "status": "success",
+                "count": len(prescriptions),
+                "prescriptions": prescriptions
+            }
+        else:
+            return {
+                "message": "No prescriptions found for this doctor",
+                "status": "success",
+                "count": 0,
+                "prescriptions": []
+            }
+            
+    except Exception as e:
+        logging.error(f"Error in get_prescriptions_by_doctor: {str(e)}")
+        return {
+            "message": "Internal server error",
+            "status": "failed",
+            "error": str(e)
+        }
 
 
 mcp = FastApiMCP(app, include_operations= [
@@ -351,6 +432,9 @@ mcp = FastApiMCP(app, include_operations= [
     "generate_meet_link",
     "check_availability",
     "book_appointment",
-    "send_appointment_email",
+    "send_email",
+    "add_prescription",
+    "get_prescriptions",
+    "get_prescriptions_by_doctor"
 ])
 mcp.mount()

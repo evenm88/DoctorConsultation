@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr
 
-from typing import Dict
+from typing import Dict, List
 class SlotCheckRequest(BaseModel):
     doctor_id: str
 
@@ -47,3 +47,15 @@ class BookAppointmentRequest(BaseModel):
 class EmailRequest(BaseModel):
     email: EmailStr
     html_content: str
+
+class PrescriptionItem(BaseModel):
+    name: str
+    count: str
+    dosage: str
+
+
+class PrescriptionRequest(BaseModel):
+    doctorid: str
+    patientid: str
+    prescriptions: List[PrescriptionItem]
+

@@ -12,5 +12,6 @@ db = client["OnlineDoctorConsultation"]
 doctors_collection = db["Doctors"]
 patients_collection = db["Patients"]
 appointments_collection = db["Appointments"]
-
+# Add this to your database collections
+prescriptions_collection = db["Prescription"]
 

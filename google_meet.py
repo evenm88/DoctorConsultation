@@ -2,8 +2,8 @@
 import datetime
 import uuid
 import os
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
+# from google.oauth2 import service_account
+# from googleapiclient.discovery import build
 
 def get_credentials():
     """Get credentials either from file or environment variables"""

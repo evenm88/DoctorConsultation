@@ -330,6 +330,20 @@ def add_prescription(data: PrescriptionRequest):
         result = prescriptions_collection.insert_one(prescription_data)
         
         if result.inserted_id:
+            subject, email_body = compose_prescription_email(
+                prescription_id,
+                data.doctorid,
+                data.patientid,
+                datetime.now().isoformat(),
+                data.prescriptions
+            )
+
+            send_email(
+                to_email=data.patientid,  # Assuming patient_id is the email
+                subject=subject,
+                html=email_body,
+            )
+
             return {
                 "message": "Prescription added successfully",
                 "status": "success",
@@ -365,6 +379,63 @@ def add_prescription(data: PrescriptionRequest):
             "status": "failed",
             "error": str(e)
         }
+
+
+def compose_prescription_email(prescription_id: str, doctor_id: str, patient_id: str, created_at: str, prescriptions: list):
+    subject = "New Prescription Created"
+
+    body = f"""
+    <html>
+    <head>
+      <style>
+        table {{
+          border-collapse: collapse;
+          width: 100%;
+        }}
+        th, td {{
+          border: 1px solid #ddd;
+          padding: 8px;
+        }}
+        th {{
+          background-color: #f2f2f2;
+        }}
+      </style>
+    </head>
+    <body>
+      <h2>Prescription Details</h2>
+      <p><strong>Prescription ID:</strong> {prescription_id}</p>
+      <p><strong>Doctor ID:</strong> {doctor_id}</p>
+      <p><strong>Patient ID:</strong> {patient_id}</p>
+      <p><strong>Created At:</strong> {created_at}</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Medicine Name</th>
+            <th>Count</th>
+            <th>Dosage (M-A-N)</th>
+          </tr>
+        </thead>
+        <tbody>
+    """
+
+    for item in prescriptions:
+        body += f"""
+          <tr>
+            <td>{item.name}</td>
+            <td>{item.count}</td>
+            <td>{item.dosage}</td>
+          </tr>
+        """
+
+    body += """
+        </tbody>
+      </table>
+      <p>Status: Active</p>
+    </body>
+    </html>
+    """
+
+    return subject, body
 
 @app.get("/get-prescriptions/{patient_id}", operation_id="get_prescriptions")
 def get_prescriptions(patient_id: str):

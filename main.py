@@ -388,25 +388,43 @@ def compose_prescription_email(prescription_id: str, doctor_id: str, patient_id:
     <html>
     <head>
       <style>
+        body {{
+          font-family: Arial, sans-serif;
+        }}
+        h2 {{
+          color: #2C3E50;
+        }}
+        p {{
+          font-size: 14px;
+        }}
         table {{
           border-collapse: collapse;
           width: 100%;
-        }}
-        th, td {{
-          border: 1px solid #ddd;
-          padding: 8px;
+          margin-top: 20px;
         }}
         th {{
-          background-color: #f2f2f2;
+          background-color: #3498DB;
+          color: white;
+          padding: 10px;
+          text-align: left;
+        }}
+        td {{
+          background-color: #ECF0F1;
+          padding: 10px;
+          font-size: 14px;
+        }}
+        tr:nth-child(even) td {{
+          background-color: #D6EAF8;
+        }}
+        .footer {{
+          margin-top: 20px;
+          font-weight: bold;
         }}
       </style>
     </head>
     <body>
       <h2>Prescription Details</h2>
-      <p><strong>Prescription ID:</strong> {prescription_id}</p>
-      <p><strong>Doctor ID:</strong> {doctor_id}</p>
-      <p><strong>Patient ID:</strong> {patient_id}</p>
-      <p><strong>Created At:</strong> {created_at}</p>
+     
       <table>
         <thead>
           <tr>
@@ -430,7 +448,6 @@ def compose_prescription_email(prescription_id: str, doctor_id: str, patient_id:
     body += """
         </tbody>
       </table>
-      <p>Status: Active</p>
     </body>
     </html>
     """
